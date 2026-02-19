@@ -2,68 +2,28 @@
 
 namespace CLDT\PennylaneLaravel\Api;
 
+use CLDT\PennylaneLaravel\Dto\PaginatedResponse;
+use CLDT\PennylaneLaravel\Dto\Responses\ProductResponse;
+
 class Products extends BaseApi
 {
-    /**
-     * List all products
-     *
-     * @return array
-     */
-    public function list()
+    public function list(array $params = []): PaginatedResponse
     {
-        $response = $this->client->request('get', "products");
-
-        return json_decode($response->getBody()->getContents(), true);
+        return PaginatedResponse::fromArray($this->httpGet('products', $params), ProductResponse::class);
     }
 
-
-    /**
-     * Create a new product
-     *
-     * @param array $data
-     * @return array
-     */
-    public function create(array $data)
+    public function create(array $data): ProductResponse
     {
-        $response = $this->client->request('post', "products", [
-            'json' => [
-                'product' => $data
-            ]
-        ]);
-
-        return json_decode($response->getBody()->getContents(), true);
+        return ProductResponse::fromArray($this->httpPost('products', $data));
     }
 
-
-    /**
-     * Retrieve a product by it's ID
-     *
-     * @param string $id
-     * @return array
-     */
-    public function get(string $id)
+    public function get(string $id): ProductResponse
     {
-        $response = $this->client->request('get', "products/{$id}");
-
-        return json_decode($response->getBody()->getContents(), true);
+        return ProductResponse::fromArray($this->httpGet("products/{$id}"));
     }
 
-
-    /**
-     * Update a product by it's ID
-     *
-     * @param string $id
-     * @param array $data
-     * @return array
-     */
-    public function update(string $id, array $data)
+    public function update(string $id, array $data): ProductResponse
     {
-        $response = $this->client->request('put', "products/{$id}", [
-            'json' => [
-                'product' => $data
-            ]
-        ]);
-
-        return json_decode($response->getBody()->getContents(), true);
+        return ProductResponse::fromArray($this->httpPut("products/{$id}", $data));
     }
 }

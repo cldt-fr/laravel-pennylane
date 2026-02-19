@@ -2,68 +2,35 @@
 
 namespace CLDT\PennylaneLaravel\Api;
 
+use CLDT\PennylaneLaravel\Dto\PaginatedResponse;
+use CLDT\PennylaneLaravel\Dto\Responses\CustomerResponse;
+use CLDT\PennylaneLaravel\Dto\Responses\CategoryResponse;
+use CLDT\PennylaneLaravel\Dto\Responses\ContactResponse;
+
 class Customers extends BaseApi
 {
-    /**
-     * List all customers
-     *
-     * @return array
-     */
-    public function list()
+    public function list(array $params = []): PaginatedResponse
     {
-        $response = $this->client->request('get', "customers");
-
-        return json_decode($response->getBody()->getContents(), true);
+        return PaginatedResponse::fromArray($this->httpGet('customers', $params), CustomerResponse::class);
     }
 
-
-    /**
-     * Create a new customer
-     *
-     * @param array $data
-     * @return array
-     */
-    public function create(array $data)
+    public function get(string $id): CustomerResponse
     {
-        $response = $this->client->request('post', "customers", [
-            'json' => [
-                'customer' => $data
-            ]
-        ]);
-
-        return json_decode($response->getBody()->getContents(), true);
+        return CustomerResponse::fromArray($this->httpGet("customers/{$id}"));
     }
 
-
-    /**
-     * Retrieve a customer by it's ID
-     *
-     * @param string $id
-     * @return array
-     */
-    public function get(string $id)
+    public function categories(string $customerId, array $params = []): PaginatedResponse
     {
-        $response = $this->client->request('get', "customers/{$id}");
-
-        return json_decode($response->getBody()->getContents(), true);
+        return PaginatedResponse::fromArray($this->httpGet("customers/{$customerId}/categories", $params), CategoryResponse::class);
     }
 
-
-    /**
-     * Update a customer by it's ID
-     *
-     * @param string $id
-     * @param array $data
-     * @return array
-     */
-    public function update(string $id, array $data)
+    public function updateCategories(string $customerId, array $data): array
     {
-        $response = $this->client->request('put', "customers/{$id}", [
-            'json' => [
-                'customer' => $data
-            ]
-        ]);
+        return $this->httpPut("customers/{$customerId}/categories", $data);
+    }
 
-        return json_decode($response->getBody()->getContents(), true);
+    public function contacts(string $customerId, array $params = []): PaginatedResponse
+    {
+        return PaginatedResponse::fromArray($this->httpGet("customers/{$customerId}/contacts", $params), ContactResponse::class);
     }
 }

@@ -1,256 +1,467 @@
-# Pennylane API wrapper for Laravel
+# Pennylane API v2 wrapper for Laravel
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/ashraam/pennylane-laravel.svg?style=flat-square)](https://packagist.org/packages/ashraam/pennylane-laravel)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/c-delouvencourt/laravel-pennylane.svg?style=flat-square)](https://packagist.org/packages/c-delouvencourt/laravel-pennylane)
 
-Please read the [official API documentation](https://pennylane.readme.io/reference#presentation) to know what are the required fields for each endpoint.
-___
+A comprehensive Laravel wrapper for the [Pennylane API v2](https://pennylane.com/api/external/v2/). Covers all ~127 endpoints with typed Response DTOs, cursor-based pagination, and OAuth 2.0 support.
+
+**Requirements:** PHP 8.1+, Laravel 8+
+
+---
 
 ## Installation
 
-You can install the package via composer:
-
 ```bash
-composer require ashraam/pennylane-laravel
+composer require c-delouvencourt/laravel-pennylane
 ```
 
-Then add the Pennylance API KEY in the `.env` file.
+Publish the configuration file:
 
 ```bash
-PENNYLANE_API_KEY=my_api_key
+php artisan vendor:publish --provider="CLDT\PennylaneLaravel\PennylaneLaravelServiceProvider" --tag="config"
 ```
-___
+
+### Authentication
+
+#### Bearer token (default)
+
+```dotenv
+PENNYLANE_API_KEY=your_api_key
+```
+
+#### OAuth 2.0
+
+```dotenv
+PENNYLANE_AUTH_METHOD=oauth2
+PENNYLANE_OAUTH_CLIENT_ID=your_client_id
+PENNYLANE_OAUTH_CLIENT_SECRET=your_client_secret
+PENNYLANE_OAUTH_REDIRECT_URI=https://your-app.com/callback
+PENNYLANE_OAUTH_TOKEN=your_access_token
+PENNYLANE_OAUTH_REFRESH_TOKEN=your_refresh_token
+```
+
+---
 
 ## Usage
 
-### List all customers
-```php
-$customers = PennylaneLaravel::customers()->list();
-```
-___
+All methods return typed Response DTOs with readonly properties. List endpoints return a `PaginatedResponse` with cursor-based pagination.
 
-### Get a customer by it's ID
-```php
-$customer = PennylaneLaravel::customers()->get(999);
-```
-___
+### Pagination
 
-### Create a new customer
 ```php
-$customer = PennylaneLaravel::customers()->create([
-    'source_id' => (string) 1,
-    'customer_type' => 'individual',
+use CLDT\PennylaneLaravel\PennylaneLaravel;
+
+$result = app(PennylaneLaravel::class)->customers()->list();
+
+$result->items;       // array of CustomerResponse
+$result->has_more;    // bool
+$result->next_cursor; // ?string
+
+// Fetch next page
+$nextPage = app(PennylaneLaravel::class)->customers()->list(['cursor' => $result->next_cursor]);
+```
+
+---
+
+## Available Resources
+
+### Customers
+
+```php
+$pennylane = app(PennylaneLaravel::class);
+
+// List all customers (company + individual)
+$customers = $pennylane->customers()->list();
+
+// Get a customer
+$customer = $pennylane->customers()->get('123');
+
+// Customer categories
+$categories = $pennylane->customers()->categories('123');
+$pennylane->customers()->updateCategories('123', $data);
+
+// Customer contacts
+$contacts = $pennylane->customers()->contacts('123');
+```
+
+### Company Customers
+
+```php
+$customer = $pennylane->companyCustomers()->create([
+    'name' => 'Acme Corp',
+    'emails' => ['contact@acme.com'],
+    'billing_address' => [
+        'address' => '1 rue de la Paix',
+        'postal_code' => '75001',
+        'city' => 'Paris',
+        'country_alpha2' => 'FR',
+    ],
+]);
+
+$customer = $pennylane->companyCustomers()->get('123');
+$customer = $pennylane->companyCustomers()->update('123', $data);
+```
+
+### Individual Customers
+
+```php
+$customer = $pennylane->individualCustomers()->create([
     'first_name' => 'John',
     'last_name' => 'Doe',
-    'gender' => 'mister',
-    'address' => "Street",
-    'postal_code' => 'zip code',
-    'city' => 'City',
-    'country_alpha2' => 'FR',
-    'emails' => ['john.doe@gmail.com'],
-    'phone' => '+33625478510'
+    'emails' => ['john@example.com'],
 ]);
-```
-___
 
-### Update a customer
-```php
-$customer = PennylaneLaravel::customers()->update(1, [
-    'delivery_address' => 'Delivery address',
-    'delivery_postal_code' => 'Delivery zip code',
-    'delivery_city' => 'Delivery city',
-    'delivery_country_alpha2' => 'FR'
-]);
+$customer = $pennylane->individualCustomers()->get('123');
+$customer = $pennylane->individualCustomers()->update('123', $data);
 ```
-___
 
-### List all products
-```php
-$products = PennylaneLaravel::products()->list();
-```
-___
+### Products
 
-### Get a product by it's ID
 ```php
-$product = PennylaneLaravel::products()->get(1);
-```
-___
+$products = $pennylane->products()->list();
+$product = $pennylane->products()->get('1');
 
-### Create a new product
-```php
-$product = PennylaneLaravel::products()->create([
-    'source_id' => (string) 1,
+$product = $pennylane->products()->create([
     'label' => 'Product 1',
     'unit' => 'piece',
-    'price_before_tax' => 10,
-    'price' => 12,
+    'price_before_tax' => '10.00',
+    'price' => '12.00',
     'vat_rate' => 'FR_200',
     'currency' => 'EUR',
-    'reference' => 'ref-001'
 ]);
-```
-___
 
-### Update a product
+$product = $pennylane->products()->update('1', ['description' => 'Updated']);
+```
+
+### Customer Invoices
+
 ```php
-$product = PennylaneLaravel::products()->update(1, [
-    'description' => 'Updated description'
-]);
-```
-___
+// List & CRUD
+$invoices = $pennylane->customerInvoices()->list();
+$invoice = $pennylane->customerInvoices()->create($data);
+$invoice = $pennylane->customerInvoices()->get(1);
+$invoice = $pennylane->customerInvoices()->update(1, $data);
+$pennylane->customerInvoices()->delete(1);
 
-### List all invoices
+// Actions
+$invoice = $pennylane->customerInvoices()->finalize(1);
+$invoice = $pennylane->customerInvoices()->markAsPaid(1);
+$pennylane->customerInvoices()->sendByEmail(1, ['emails' => ['client@example.com']]);
+$invoice = $pennylane->customerInvoices()->linkCreditNote(1, $data);
+$invoice = $pennylane->customerInvoices()->createFromQuote($data);
+$invoice = $pennylane->customerInvoices()->import($data);
+$invoice = $pennylane->customerInvoices()->updateImported(1, $data);
+
+// Sub-resources
+$sections = $pennylane->customerInvoices()->invoiceLineSections(1);
+$lines = $pennylane->customerInvoices()->invoiceLines(1);
+$payments = $pennylane->customerInvoices()->payments(1);
+$matched = $pennylane->customerInvoices()->matchedTransactions(1);
+$pennylane->customerInvoices()->matchTransaction(1, $data);
+$pennylane->customerInvoices()->unmatchTransaction(1, 5);
+$appendices = $pennylane->customerInvoices()->appendices(1);
+$pennylane->customerInvoices()->uploadAppendix(1, $data);
+$categories = $pennylane->customerInvoices()->categories(1);
+$pennylane->customerInvoices()->updateCategories(1, $data);
+$fields = $pennylane->customerInvoices()->customHeaderFields(1);
+```
+
+### Supplier Invoices
+
 ```php
-$invoices = PennylaneLaravel::invoices()->list();
+$invoices = $pennylane->supplierInvoices()->list();
+$invoice = $pennylane->supplierInvoices()->get(1);
+$invoice = $pennylane->supplierInvoices()->update(1, $data);
+$invoice = $pennylane->supplierInvoices()->import($data);
+$invoice = $pennylane->supplierInvoices()->validateAccounting(1);
 
-// Invoices can be filtered
-$invoices = PennylaneLaravel::invoices()->list([
-    [
-        'field' => 'customer_id',
-        'operator' => 'eq',
-        'value' => (string) 1
-    ],
-    [
-        'field' => 'status',
-        'operator' => 'eq',
-        'value' => 'draft_status'
-    ]
-]);
+// Sub-resources
+$lines = $pennylane->supplierInvoices()->invoiceLines(1);
+$payments = $pennylane->supplierInvoices()->payments(1);
+$pennylane->supplierInvoices()->updatePaymentStatus(1, $data);
+$matched = $pennylane->supplierInvoices()->matchedTransactions(1);
+$pennylane->supplierInvoices()->matchTransaction(1, $data);
+$pennylane->supplierInvoices()->unmatchTransaction(1, 5);
+$pennylane->supplierInvoices()->linkPurchaseRequest(1, $data);
+$categories = $pennylane->supplierInvoices()->categories(1);
+$pennylane->supplierInvoices()->updateCategories(1, $data);
 ```
-___
 
-### Get an invoice by it's ID
+### Quotes
+
 ```php
-$invoice = PennylaneLaravel::invoices()->get('RNT9MXHXAD');
-```
-___
+$quotes = $pennylane->quotes()->list();
+$quote = $pennylane->quotes()->create($data);
+$quote = $pennylane->quotes()->get(1);
+$quote = $pennylane->quotes()->update(1, $data);
+$quote = $pennylane->quotes()->updateStatus(1, ['status' => 'accepted']);
+$pennylane->quotes()->sendByEmail(1, $data);
 
-### Create an invoice
-Second and third default value is set to **false**
+// Sub-resources
+$lines = $pennylane->quotes()->invoiceLines(1);
+$sections = $pennylane->quotes()->invoiceLineSections(1);
+$appendices = $pennylane->quotes()->appendices(1);
+$pennylane->quotes()->uploadAppendix(1, $data);
+```
+
+### Suppliers
+
 ```php
-$invoice = PennylaneLaravel::invoices()->create([
-    'date' => today()->format('Y-m-d'),
-    'deadline' => today()->addDays(15)->format('Y-m-d'),
-    'draft' => false,
-    'customer' => [
-        'source_id' => (string) 1
-    ],
-    'line_items' => [
-        [
-            'label' => "My special item",
-            'quantity' => 3,
-            'product' => [
-                'source_id' => (string) 1
-            ]
-        ],
-        [
-            'label' => "Remise",
-            'quantity' => 1,
-            'currency_amount' => -10,
-            'unit' => 'piece',
-            'vat_rate' => 'FR_200'
-        ]
-    ]
-], $create_customers = false, $create_products = false);
+$suppliers = $pennylane->suppliers()->list();
+$supplier = $pennylane->suppliers()->create($data);
+$supplier = $pennylane->suppliers()->get(1);
+$supplier = $pennylane->suppliers()->update(1, $data);
+$categories = $pennylane->suppliers()->categories(1);
+$pennylane->suppliers()->updateCategories(1, $data);
 ```
-___
 
-### Import an invoice
-Third default value is set to **false**
+### Billing Subscriptions
+
 ```php
-$invoice = PennylaneLaravel::invoices()->import([
-    'date' => today()->format('Y-m-d'),
-    'deadline' => today()->addDays(15)->format('Y-m-d'),
-    'invoice_number' => 'F-874',
-    'currency' => 'EUR',
-    'customer' => [
-        'source_id' => (string) 1
-    ],
-    'line_items' => [
-        [
-            'label' => "My special item",
-            'quantity' => 3,
-            'product' => [
-                'source_id' => (string) 1
-            ]
-        ],
-        [
-            'label' => "Remise",
-            'quantity' => 1,
-            'currency_amount' => -10,
-            'unit' => 'piece',
-            'vat_rate' => 'FR_200'
-        ]
-    ]
-], $file_url, $create_customer = false);
+$subscriptions = $pennylane->billingSubscriptions()->list();
+$subscription = $pennylane->billingSubscriptions()->create($data);
+$subscription = $pennylane->billingSubscriptions()->get(1);
+$subscription = $pennylane->billingSubscriptions()->update(1, $data);
+$sections = $pennylane->billingSubscriptions()->invoiceLineSections(1);
+$lines = $pennylane->billingSubscriptions()->invoiceLines(1);
 ```
-___
 
-### List all estimates
+### Bank Accounts & Transactions
+
 ```php
-$estimates = PennylaneLaravel::estimates()->list();
-```
-___
+// Bank accounts
+$accounts = $pennylane->bankAccounts()->list();
+$account = $pennylane->bankAccounts()->create($data);
+$account = $pennylane->bankAccounts()->get(1);
 
-### Get an estimate by it's ID
+// Bank establishments
+$establishments = $pennylane->bankEstablishments()->list();
+
+// Transactions
+$transactions = $pennylane->transactions()->list();
+$transaction = $pennylane->transactions()->create($data);
+$transaction = $pennylane->transactions()->get(1);
+$transaction = $pennylane->transactions()->update(1, $data);
+$categories = $pennylane->transactions()->categories(1);
+$pennylane->transactions()->updateCategories(1, $data);
+$matched = $pennylane->transactions()->matchedInvoices(1);
+```
+
+### Ledger (Accounts, Entries, Lines, Attachments)
+
 ```php
-$estimate = PennylaneLaravel::estimates()->get('VVAWLPY8QB');
-```
-___
+// Ledger accounts
+$accounts = $pennylane->ledgerAccounts()->list();
+$account = $pennylane->ledgerAccounts()->create($data);
+$account = $pennylane->ledgerAccounts()->get(1);
+$account = $pennylane->ledgerAccounts()->update(1, $data);
 
-### Create a new estimate
+// Ledger entries
+$entries = $pennylane->ledgerEntries()->list();
+$entry = $pennylane->ledgerEntries()->create($data);
+$entry = $pennylane->ledgerEntries()->get(1);
+$entry = $pennylane->ledgerEntries()->update(1, $data);
+$lines = $pennylane->ledgerEntries()->ledgerEntryLines(1);
+
+// Ledger entry lines
+$lines = $pennylane->ledgerEntryLines()->list();
+$line = $pennylane->ledgerEntryLines()->get(1);
+$pennylane->ledgerEntryLines()->letter($data);
+$pennylane->ledgerEntryLines()->unletter($data);
+$lettered = $pennylane->ledgerEntryLines()->letteredLines(1);
+$categories = $pennylane->ledgerEntryLines()->categories(1);
+$pennylane->ledgerEntryLines()->updateCategories(1, $data);
+
+// Ledger attachments
+$attachments = $pennylane->ledgerAttachments()->list();
+$pennylane->ledgerAttachments()->upload($data);
+```
+
+### Categories & Category Groups
+
 ```php
-$estimate = PennylaneLaravel::estimates()->create([
-    'date' => today()->format('Y-m-d'),
-    'deadline' => today()->addDays(15)->format('Y-m-d'),
-    'customer' => [
-        'source_id' => (string) 1
-    ],
-    'line_items' => [
-        [
-            'label' => "My special item",
-            'quantity' => 3,
-            'product' => [
-                'source_id' => (string) 1
-            ]
-        ],
-        [
-            'label' => "Random line",
-            'quantity' => 1,
-            'currency_amount' => 17.85,
-            'unit' => 'piece',
-            'vat_rate' => 'FR_200'
-        ]
-    ]
-]);
-```
-___
+$categories = $pennylane->categories()->list();
+$category = $pennylane->categories()->create($data);
+$category = $pennylane->categories()->get(1);
+$category = $pennylane->categories()->update(1, $data);
 
-### Get an enum
-The second parameter default value is **en**
+$groups = $pennylane->categoryGroups()->list();
+$group = $pennylane->categoryGroups()->get(1);
+$categories = $pennylane->categoryGroups()->categories(1);
+```
+
+### Journals
+
 ```php
-$values = PennylaneLaravel::enums()->get('unit', 'fr');
+$journals = $pennylane->journals()->list();
+$journal = $pennylane->journals()->create($data);
+$journal = $pennylane->journals()->get(1);
 ```
-___
 
-### Changelog
+### Commercial Documents
+
+```php
+$documents = $pennylane->commercialDocuments()->list();
+$document = $pennylane->commercialDocuments()->get(1);
+$appendices = $pennylane->commercialDocuments()->appendices(1);
+$pennylane->commercialDocuments()->uploadAppendix(1, $data);
+$lines = $pennylane->commercialDocuments()->invoiceLines(1);
+$sections = $pennylane->commercialDocuments()->invoiceLineSections(1);
+```
+
+### SEPA & GoCardless Mandates
+
+```php
+// SEPA mandates
+$mandates = $pennylane->sepaMandates()->list();
+$mandate = $pennylane->sepaMandates()->create($data);
+$mandate = $pennylane->sepaMandates()->get(1);
+$mandate = $pennylane->sepaMandates()->update(1, $data);
+$pennylane->sepaMandates()->delete(1);
+
+// GoCardless mandates
+$mandates = $pennylane->gocardlessMandates()->list();
+$mandate = $pennylane->gocardlessMandates()->get(1);
+$pennylane->gocardlessMandates()->sendMailRequest($data);
+$pennylane->gocardlessMandates()->cancel(1);
+$associations = $pennylane->gocardlessMandates()->associations(1);
+
+// Pro account mandates
+$mandates = $pennylane->proAccountMandates()->list();
+```
+
+### Exports
+
+```php
+$export = $pennylane->exports()->createAnalyticalGeneralLedger($data);
+$status = $pennylane->exports()->getAnalyticalGeneralLedger(1);
+
+$export = $pennylane->exports()->createFec($data);
+$status = $pennylane->exports()->getFec(1);
+```
+
+### File Attachments
+
+```php
+$files = $pennylane->fileAttachments()->list();
+$file = $pennylane->fileAttachments()->upload($data);
+```
+
+### Purchase Requests
+
+```php
+$requests = $pennylane->purchaseRequests()->list();
+$request = $pennylane->purchaseRequests()->get(1);
+$request = $pennylane->purchaseRequests()->update(1, $data);
+$pennylane->purchaseRequests()->import($data);
+```
+
+### Other Resources
+
+```php
+// Users
+$user = $pennylane->users()->create($data);
+$user = $pennylane->users()->find(['email' => 'user@example.com']);
+$user = $pennylane->users()->update(1, $data);
+$me = $pennylane->users()->me();
+// Or directly:
+$me = $pennylane->me();
+
+// Companies
+$pennylane->companies()->create($data);
+$pennylane->companies()->completeRegistration(1, $data);
+
+// Webhooks
+$webhook = $pennylane->webhooks()->get();
+
+// Customer invoice templates
+$templates = $pennylane->customerInvoiceTemplates()->list();
+
+// E-Invoices
+$pennylane->eInvoices()->import($data);
+
+// Fiscal years
+$years = $pennylane->fiscalYears()->list();
+
+// Trial balance
+$balance = $pennylane->trialBalance()->get(['start_date' => '2024-01-01', 'end_date' => '2024-12-31']);
+
+// Changelogs
+$changes = $pennylane->changelogs()->customerInvoices(['since' => '2024-01-01']);
+$changes = $pennylane->changelogs()->supplierInvoices($params);
+$changes = $pennylane->changelogs()->customers($params);
+$changes = $pennylane->changelogs()->suppliers($params);
+$changes = $pennylane->changelogs()->products($params);
+$changes = $pennylane->changelogs()->ledgerEntryLines($params);
+$changes = $pennylane->changelogs()->transactions($params);
+$changes = $pennylane->changelogs()->quotes($params);
+```
+
+---
+
+## Migrating from v1
+
+| v1 | v2 | Notes |
+|---|---|---|
+| `invoices()` | `customerInvoices()` | `invoices()` still works as deprecated alias |
+| `estimates()` | `quotes()` | `estimates()` still works as deprecated alias |
+| `enums()->get('unit')` | Removed | Use PHP enums in `Dto\Enums\*` instead |
+| Array returns | DTO returns | All methods return typed Response DTOs |
+| Offset pagination | Cursor pagination | Use `PaginatedResponse` with `next_cursor` |
+| `PENNYLANE_API_KEY` | `PENNYLANE_API_KEY` | Same env var, new config structure |
+
+---
+
+## Response DTOs
+
+All responses use readonly properties and can be created from arrays:
+
+```php
+use CLDT\PennylaneLaravel\Dto\Responses\ProductResponse;
+
+$product = $pennylane->products()->get('1');
+$product->id;                // int
+$product->label;             // string
+$product->price_before_tax;  // ?string
+$product->currency;          // ?string
+$product->created_at;        // ?string
+```
+
+## PHP Enums
+
+All API enum values are available as PHP 8.1 backed enums:
+
+```php
+use CLDT\PennylaneLaravel\Dto\Enums\InvoiceStatus;
+use CLDT\PennylaneLaravel\Dto\Enums\Currency;
+use CLDT\PennylaneLaravel\Dto\Enums\VatRate;
+use CLDT\PennylaneLaravel\Dto\Enums\PaymentConditions;
+
+InvoiceStatus::Draft->value;          // 'draft'
+Currency::EUR->value;                 // 'EUR'
+VatRate::FR200->value;                // 'FR_200'
+PaymentConditions::Days30->value;     // '30_days'
+```
+
+Available enums: `AccountType`, `BillingSubscriptionMode`, `BillingSubscriptionOccurrenceRuleType`, `BillingSubscriptionPaymentMethod`, `BillingSubscriptionStatus`, `CategoryDirection`, `CommercialDocumentType`, `Currency`, `CustomerBillingLanguage`, `DiscountType`, `ExportStatus`, `InvoiceAccountingStatus`, `InvoicePaymentStatus`, `InvoiceStatus`, `MandateStatus`, `PaymentConditions`, `PaymentStatus`, `ProductUnit`, `PurchaseRequestStatus`, `QuoteStatus`, `SepaSequenceType`, `SupplierDueDateRule`, `SupplierPaymentMethod`, `VatRate`.
+
+---
+
+## Changelog
 
 Please see [CHANGELOG](CHANGELOG.md) for more information what has changed recently.
-___
 
 ## Contributing
 
 Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
-___
 
-### Security
+## Security
 
-If you discover any security related issues, please email romain.bertolucci@gmail.com instead of using the issue tracker.
-___
+If you discover any security related issues, please email clement@meilleursbiens.com instead of using the issue tracker.
 
 ## Credits
 
--   [Romain Bertolucci](https://github.com/ashraam)
-___
+- [Clement de Louvencourt](https://github.com/c-delouvencourt)
+- [Romain Bertolucci](https://github.com/ashraam)
 
 ## License
 

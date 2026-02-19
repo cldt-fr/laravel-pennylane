@@ -2,57 +2,82 @@
 
 namespace CLDT\PennylaneLaravel\Api;
 
+use CLDT\PennylaneLaravel\Dto\PaginatedResponse;
+use CLDT\PennylaneLaravel\Dto\Responses\SupplierInvoiceResponse;
+use CLDT\PennylaneLaravel\Dto\Responses\InvoiceLineResponse;
+use CLDT\PennylaneLaravel\Dto\Responses\PaymentResponse;
+use CLDT\PennylaneLaravel\Dto\Responses\MatchedTransactionResponse;
+use CLDT\PennylaneLaravel\Dto\Responses\CategoryResponse;
+
 class SupplierInvoices extends BaseApi
 {
-    /**
-     * List all invoices
-     *
-     * @param array $filters
-     * @return array
-     */
-    public function list(array $filters = [])
+    public function list(array $params = []): PaginatedResponse
     {
-        $response = $this->client->request('get', "supplier_invoices", [
-            'query' => [
-                'filter' => json_encode($filters)
-            ]
-        ]);
-
-        return json_decode($response->getBody()->getContents(), true);
+        return PaginatedResponse::fromArray($this->httpGet('supplier_invoices', $params), SupplierInvoiceResponse::class);
     }
 
-    /**
-     * Get an invoice by it's ID
-     *
-     * @param string $id
-     * @return array
-     */
-    public function get(string $id)
+    public function import(array $data): SupplierInvoiceResponse
     {
-        $response = $this->client->request('get', "supplier_invoices/{$id}");
-
-        return json_decode($response->getBody()->getContents(), true);
+        return SupplierInvoiceResponse::fromArray($this->httpPost('supplier_invoices/import', $data));
     }
 
-
-    /**
-     * Import an invoice
-     *
-     * @param array $data
-     * @param string $file_url
-     * @param boolean $create_supplier
-     * @return array
-     */
-    public function import(array $data, string $file_url, bool $create_supplier)
+    public function get(int $id): SupplierInvoiceResponse
     {
-        $response = $this->client->request('post', "supplier_invoices/import", [
-            'json' => [
-                'create_supplier' => $create_supplier,
-                'file_url' => $file_url,
-                'invoice' => $data
-            ]
-        ]);
+        return SupplierInvoiceResponse::fromArray($this->httpGet("supplier_invoices/{$id}"));
+    }
 
-        return json_decode($response->getBody()->getContents(), true);
+    public function update(int $id, array $data): SupplierInvoiceResponse
+    {
+        return SupplierInvoiceResponse::fromArray($this->httpPut("supplier_invoices/{$id}", $data));
+    }
+
+    public function validateAccounting(int $id): SupplierInvoiceResponse
+    {
+        return SupplierInvoiceResponse::fromArray($this->httpPut("supplier_invoices/{$id}/validate_accounting"));
+    }
+
+    public function invoiceLines(int $invoiceId, array $params = []): PaginatedResponse
+    {
+        return PaginatedResponse::fromArray($this->httpGet("supplier_invoices/{$invoiceId}/invoice_lines", $params), InvoiceLineResponse::class);
+    }
+
+    public function categories(int $invoiceId): array
+    {
+        return $this->httpGet("supplier_invoices/{$invoiceId}/categories");
+    }
+
+    public function updateCategories(int $invoiceId, array $data): array
+    {
+        return $this->httpPut("supplier_invoices/{$invoiceId}/categories", $data);
+    }
+
+    public function payments(int $invoiceId, array $params = []): PaginatedResponse
+    {
+        return PaginatedResponse::fromArray($this->httpGet("supplier_invoices/{$invoiceId}/payments", $params), PaymentResponse::class);
+    }
+
+    public function updatePaymentStatus(int $invoiceId, array $data): SupplierInvoiceResponse
+    {
+        return SupplierInvoiceResponse::fromArray($this->httpPut("supplier_invoices/{$invoiceId}/payment_status", $data));
+    }
+
+    public function matchedTransactions(int $invoiceId, array $params = []): PaginatedResponse
+    {
+        return PaginatedResponse::fromArray($this->httpGet("supplier_invoices/{$invoiceId}/matched_transactions", $params), MatchedTransactionResponse::class);
+    }
+
+    public function matchTransaction(int $invoiceId, array $data): MatchedTransactionResponse
+    {
+        return MatchedTransactionResponse::fromArray($this->httpPost("supplier_invoices/{$invoiceId}/matched_transactions", $data));
+    }
+
+    public function unmatchTransaction(int $invoiceId, int $transactionId): void
+    {
+        $this->httpDelete("supplier_invoices/{$invoiceId}/matched_transactions/{$transactionId}");
+    }
+
+    public function linkPurchaseRequest(int $invoiceId, array $data): array
+    {
+        return $this->httpPost("supplier_invoices/{$invoiceId}/linked_purchase_requests", $data);
     }
 }
