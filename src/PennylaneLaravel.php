@@ -37,13 +37,13 @@ use CLDT\PennylaneLaravel\Api\TrialBalance;
 use CLDT\PennylaneLaravel\Api\Users;
 use CLDT\PennylaneLaravel\Api\Webhooks;
 use CLDT\PennylaneLaravel\Dto\Responses\UserResponse;
-use GuzzleHttp\ClientInterface;
+use Illuminate\Http\Client\PendingRequest;
 
 class PennylaneLaravel
 {
-    protected ClientInterface $client;
+    protected PendingRequest $client;
 
-    public function __construct(ClientInterface $client)
+    public function __construct(PendingRequest $client)
     {
         $this->client = $client;
     }
@@ -220,9 +220,7 @@ class PennylaneLaravel
 
     public function me(): UserResponse
     {
-        $response = $this->client->request('GET', 'me');
-        $data = json_decode($response->getBody()->getContents(), true);
-        return UserResponse::fromArray($data);
+        return UserResponse::fromArray($this->client->get('me')->json());
     }
 
     /**

@@ -12,8 +12,8 @@ class FileAttachments extends BaseApi
         return PaginatedResponse::fromArray($this->httpGet('file_attachments', $params), FileAttachmentResponse::class);
     }
 
-    public function upload(array $data): FileAttachmentResponse
+    public function upload(array $fields = [], array $attachments = []): FileAttachmentResponse
     {
-        return FileAttachmentResponse::fromArray($this->httpPost('file_attachments', $data));
+        return FileAttachmentResponse::fromArray($this->httpPostMultipart('file_attachments', $fields, $attachments));
     }
 }

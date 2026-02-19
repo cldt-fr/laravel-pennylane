@@ -2,53 +2,51 @@
 
 namespace CLDT\PennylaneLaravel\Api;
 
-use GuzzleHttp\ClientInterface;
+use Illuminate\Http\Client\PendingRequest;
 
 abstract class BaseApi
 {
-    protected ClientInterface $client;
+    protected PendingRequest $client;
 
-    public function __construct(ClientInterface $client)
+    public function __construct(PendingRequest $client)
     {
         $this->client = $client;
     }
 
     protected function httpGet(string $uri, array $query = []): array
     {
-        $options = [];
-        if (!empty($query)) {
-            $options['query'] = $query;
-        }
-        $response = $this->client->request('GET', $uri, $options);
-        return json_decode($response->getBody()->getContents(), true);
+        return $this->client->get($uri, $query)->json();
     }
 
     protected function httpPost(string $uri, array $data = []): array
     {
-        $options = [];
-        if (!empty($data)) {
-            $options['json'] = $data;
-        }
-        $response = $this->client->request('POST', $uri, $options);
-        return json_decode($response->getBody()->getContents(), true);
+        return $this->client->post($uri, $data)->json();
     }
 
     protected function httpPut(string $uri, array $data = []): array
     {
-        $options = [];
-        if (!empty($data)) {
-            $options['json'] = $data;
+        return $this->client->put($uri, $data)->json();
+    }
+
+    protected function httpPostMultipart(string $uri, array $fields = [], array $attachments = []): array
+    {
+        foreach ($attachments as $attachment) {
+            $this->client->attach(
+                $attachment['name'],
+                $attachment['contents'],
+                $attachment['filename'] ?? null
+            );
         }
-        $response = $this->client->request('PUT', $uri, $options);
-        return json_decode($response->getBody()->getContents(), true);
+
+        $response = $this->client->post($uri, $fields)->json();
+
+        $this->client->asJson();
+
+        return $response;
     }
 
     protected function httpDelete(string $uri, array $data = []): void
     {
-        $options = [];
-        if (!empty($data)) {
-            $options['json'] = $data;
-        }
-        $this->client->request('DELETE', $uri, $options);
+        $this->client->delete($uri, $data);
     }
 }

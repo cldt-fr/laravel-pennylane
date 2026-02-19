@@ -13,4 +13,9 @@ return [
             'refresh_token' => env('PENNYLANE_OAUTH_REFRESH_TOKEN'),
         ],
     ],
+    'retry' => [
+        'times' => env('PENNYLANE_RETRY_TIMES', 3),
+        'sleep' => env('PENNYLANE_RETRY_SLEEP', 500),
+        'throw' => env('PENNYLANE_RETRY_THROW', true),
+    ],
 ];

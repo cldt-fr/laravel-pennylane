@@ -28,9 +28,9 @@ class CustomerInvoices extends BaseApi
         return CustomerInvoiceResponse::fromArray($this->httpPost('customer_invoices/create_from_quote', $data));
     }
 
-    public function import(array $data): CustomerInvoiceResponse
+    public function import(array $fields = [], array $attachments = []): CustomerInvoiceResponse
     {
-        return CustomerInvoiceResponse::fromArray($this->httpPost('customer_invoices/import', $data));
+        return CustomerInvoiceResponse::fromArray($this->httpPostMultipart('customer_invoices/import', $fields, $attachments));
     }
 
     public function get(int $id): CustomerInvoiceResponse
@@ -108,9 +108,9 @@ class CustomerInvoices extends BaseApi
         return PaginatedResponse::fromArray($this->httpGet("customer_invoices/{$invoiceId}/appendices", $params), AppendixResponse::class);
     }
 
-    public function uploadAppendix(int $invoiceId, array $data): AppendixResponse
+    public function uploadAppendix(int $invoiceId, array $fields = [], array $attachments = []): AppendixResponse
     {
-        return AppendixResponse::fromArray($this->httpPost("customer_invoices/{$invoiceId}/appendices", $data));
+        return AppendixResponse::fromArray($this->httpPostMultipart("customer_invoices/{$invoiceId}/appendices", $fields, $attachments));
     }
 
     public function categories(int $invoiceId): array

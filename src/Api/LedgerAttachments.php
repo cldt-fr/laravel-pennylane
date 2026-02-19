@@ -12,8 +12,8 @@ class LedgerAttachments extends BaseApi
         return PaginatedResponse::fromArray($this->httpGet('ledger_attachments', $params), FileAttachmentResponse::class);
     }
 
-    public function upload(array $data): FileAttachmentResponse
+    public function upload(array $fields = [], array $attachments = []): FileAttachmentResponse
     {
-        return FileAttachmentResponse::fromArray($this->httpPost('ledger_attachments', $data));
+        return FileAttachmentResponse::fromArray($this->httpPostMultipart('ledger_attachments', $fields, $attachments));
     }
 }

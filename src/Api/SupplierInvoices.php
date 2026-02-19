@@ -16,9 +16,9 @@ class SupplierInvoices extends BaseApi
         return PaginatedResponse::fromArray($this->httpGet('supplier_invoices', $params), SupplierInvoiceResponse::class);
     }
 
-    public function import(array $data): SupplierInvoiceResponse
+    public function import(array $fields = [], array $attachments = []): SupplierInvoiceResponse
     {
-        return SupplierInvoiceResponse::fromArray($this->httpPost('supplier_invoices/import', $data));
+        return SupplierInvoiceResponse::fromArray($this->httpPostMultipart('supplier_invoices/import', $fields, $attachments));
     }
 
     public function get(int $id): SupplierInvoiceResponse

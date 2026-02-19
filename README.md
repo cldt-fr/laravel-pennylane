@@ -2,7 +2,9 @@
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/c-delouvencourt/laravel-pennylane.svg?style=flat-square)](https://packagist.org/packages/c-delouvencourt/laravel-pennylane)
 
-A comprehensive Laravel wrapper for the [Pennylane API v2](https://pennylane.com/api/external/v2/). Covers all ~127 endpoints with typed Response DTOs, cursor-based pagination, and OAuth 2.0 support.
+A comprehensive Laravel wrapper for the [Pennylane API v2](https://pennylane.com/api/external/v2/). Covers all ~127 endpoints with typed Response DTOs, cursor-based pagination, OAuth 2.0 support, and automatic retry.
+
+Built on Laravel's HTTP client (`Illuminate\Http\Client`).
 
 **Requirements:** PHP 8.1+, Laravel 8+
 
@@ -37,6 +39,26 @@ PENNYLANE_OAUTH_CLIENT_SECRET=your_client_secret
 PENNYLANE_OAUTH_REDIRECT_URI=https://your-app.com/callback
 PENNYLANE_OAUTH_TOKEN=your_access_token
 PENNYLANE_OAUTH_REFRESH_TOKEN=your_refresh_token
+```
+
+### Retry
+
+All HTTP requests are automatically retried on failure. You can configure this behavior via environment variables:
+
+```dotenv
+PENNYLANE_RETRY_TIMES=3      # Number of attempts (default: 3)
+PENNYLANE_RETRY_SLEEP=500     # Delay in ms between attempts (default: 500)
+PENNYLANE_RETRY_THROW=true    # Throw exception after all attempts fail (default: true)
+```
+
+Or directly in `config/pennylane-laravel.php`:
+
+```php
+'retry' => [
+    'times' => 3,
+    'sleep' => 500,
+    'throw' => true,
+],
 ```
 
 ---
@@ -148,8 +170,15 @@ $invoice = $pennylane->customerInvoices()->markAsPaid(1);
 $pennylane->customerInvoices()->sendByEmail(1, ['emails' => ['client@example.com']]);
 $invoice = $pennylane->customerInvoices()->linkCreditNote(1, $data);
 $invoice = $pennylane->customerInvoices()->createFromQuote($data);
-$invoice = $pennylane->customerInvoices()->import($data);
 $invoice = $pennylane->customerInvoices()->updateImported(1, $data);
+
+// Import with file upload (multipart/form-data)
+$invoice = $pennylane->customerInvoices()->import(
+    fields: ['create_customer' => true],
+    attachments: [
+        ['name' => 'file', 'contents' => file_get_contents('/path/to/invoice.pdf'), 'filename' => 'invoice.pdf'],
+    ],
+);
 
 // Sub-resources
 $sections = $pennylane->customerInvoices()->invoiceLineSections(1);
@@ -159,7 +188,14 @@ $matched = $pennylane->customerInvoices()->matchedTransactions(1);
 $pennylane->customerInvoices()->matchTransaction(1, $data);
 $pennylane->customerInvoices()->unmatchTransaction(1, 5);
 $appendices = $pennylane->customerInvoices()->appendices(1);
-$pennylane->customerInvoices()->uploadAppendix(1, $data);
+
+// Upload appendix (multipart/form-data)
+$pennylane->customerInvoices()->uploadAppendix(1,
+    attachments: [
+        ['name' => 'file', 'contents' => file_get_contents('/path/to/appendix.pdf'), 'filename' => 'appendix.pdf'],
+    ],
+);
+
 $categories = $pennylane->customerInvoices()->categories(1);
 $pennylane->customerInvoices()->updateCategories(1, $data);
 $fields = $pennylane->customerInvoices()->customHeaderFields(1);
@@ -171,8 +207,15 @@ $fields = $pennylane->customerInvoices()->customHeaderFields(1);
 $invoices = $pennylane->supplierInvoices()->list();
 $invoice = $pennylane->supplierInvoices()->get(1);
 $invoice = $pennylane->supplierInvoices()->update(1, $data);
-$invoice = $pennylane->supplierInvoices()->import($data);
 $invoice = $pennylane->supplierInvoices()->validateAccounting(1);
+
+// Import with file upload (multipart/form-data)
+$invoice = $pennylane->supplierInvoices()->import(
+    fields: ['create_supplier' => true],
+    attachments: [
+        ['name' => 'file', 'contents' => file_get_contents('/path/to/invoice.pdf'), 'filename' => 'invoice.pdf'],
+    ],
+);
 
 // Sub-resources
 $lines = $pennylane->supplierInvoices()->invoiceLines(1);
@@ -273,7 +316,13 @@ $pennylane->ledgerEntryLines()->updateCategories(1, $data);
 
 // Ledger attachments
 $attachments = $pennylane->ledgerAttachments()->list();
-$pennylane->ledgerAttachments()->upload($data);
+
+// Upload (multipart/form-data)
+$pennylane->ledgerAttachments()->upload(
+    attachments: [
+        ['name' => 'file', 'contents' => file_get_contents('/path/to/attachment.pdf'), 'filename' => 'attachment.pdf'],
+    ],
+);
 ```
 
 ### Categories & Category Groups
@@ -343,7 +392,13 @@ $status = $pennylane->exports()->getFec(1);
 
 ```php
 $files = $pennylane->fileAttachments()->list();
-$file = $pennylane->fileAttachments()->upload($data);
+
+// Upload (multipart/form-data)
+$file = $pennylane->fileAttachments()->upload(
+    attachments: [
+        ['name' => 'file', 'contents' => file_get_contents('/path/to/document.pdf'), 'filename' => 'document.pdf'],
+    ],
+);
 ```
 
 ### Purchase Requests
@@ -398,7 +453,40 @@ $changes = $pennylane->changelogs()->quotes($params);
 
 ---
 
-## Migrating from v1
+## Migrating from v2.0 to v2.1
+
+### HTTP client
+
+The underlying HTTP client has been migrated from **GuzzleHTTP** to **Laravel's HTTP facade** (`Illuminate\Http\Client`). This change is transparent for most usages, but if you were injecting `GuzzleHttp\ClientInterface` directly, you need to update to `Illuminate\Http\Client\PendingRequest`.
+
+### File uploads
+
+The `import()` and `upload()` methods now use `multipart/form-data` and accept two parameters instead of one:
+
+| Method | Before | After |
+|---|---|---|
+| `customerInvoices()->import()` | `import(array $data)` | `import(array $fields = [], array $attachments = [])` |
+| `customerInvoices()->uploadAppendix()` | `uploadAppendix(int $id, array $data)` | `uploadAppendix(int $id, array $fields = [], array $attachments = [])` |
+| `supplierInvoices()->import()` | `import(array $data)` | `import(array $fields = [], array $attachments = [])` |
+| `fileAttachments()->upload()` | `upload(array $data)` | `upload(array $fields = [], array $attachments = [])` |
+| `ledgerAttachments()->upload()` | `upload(array $data)` | `upload(array $fields = [], array $attachments = [])` |
+
+Each attachment is an array with the following keys:
+
+```php
+['name' => 'file', 'contents' => $fileContents, 'filename' => 'invoice.pdf']
+```
+
+### Retry
+
+Automatic retry is now configured by default (3 attempts, 500ms delay). See the [Retry](#retry) section to customize.
+
+### Dependencies
+
+- Removed: `guzzlehttp/guzzle`
+- Added: `illuminate/http`
+
+## Migrating from v1 to v2
 
 | v1 | v2 | Notes |
 |---|---|---|

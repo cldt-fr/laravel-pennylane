@@ -2,7 +2,7 @@
 
 namespace CLDT\PennylaneLaravel;
 
-use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\ServiceProvider;
 
 class PennylaneLaravelServiceProvider extends ServiceProvider
@@ -21,20 +21,22 @@ class PennylaneLaravelServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/config.php', 'pennylane-laravel');
 
         $this->app->singleton(PennylaneLaravel::class, function () {
-            $headers = ['Accept' => 'application/json'];
             $authMethod = config('pennylane-laravel.auth.method', 'bearer');
 
             if ($authMethod === 'oauth2') {
                 $token = config('pennylane-laravel.auth.oauth.token');
-                $headers['Authorization'] = 'Bearer ' . $token;
             } else {
-                $headers['Authorization'] = 'Bearer ' . config('pennylane-laravel.auth.key');
+                $token = config('pennylane-laravel.auth.key');
             }
 
-            $client = new Client([
-                'base_uri' => config('pennylane-laravel.endpoint'),
-                'headers' => $headers,
-            ]);
+            $client = Http::baseUrl(config('pennylane-laravel.endpoint'))
+                ->acceptJson()
+                ->withToken($token)
+                ->retry(
+                    config('pennylane-laravel.retry.times', 3),
+                    config('pennylane-laravel.retry.sleep', 500),
+                    throw: config('pennylane-laravel.retry.throw', true),
+                );
 
             return new PennylaneLaravel($client);
         });
