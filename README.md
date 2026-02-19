@@ -43,7 +43,7 @@ PENNYLANE_OAUTH_REFRESH_TOKEN=your_refresh_token
 
 ### Retry
 
-All HTTP requests are automatically retried on failure. You can configure this behavior via environment variables:
+All HTTP requests are automatically retried on **recoverable** failures (5xx server errors, 429 rate limiting, and connection timeouts). Client errors (400, 401, 403, 404, 422) are **not** retried since they would never succeed. You can configure this behavior via environment variables:
 
 ```dotenv
 PENNYLANE_RETRY_TIMES=3      # Number of attempts (default: 3)
@@ -60,6 +60,52 @@ Or directly in `config/pennylane-laravel.php`:
     'throw' => true,
 ],
 ```
+
+### Error Handling
+
+All API calls throw typed exceptions on failure. Every exception extends `PennylaneApiException`, so you can catch specific errors or handle them all at once:
+
+```php
+use CLDT\PennylaneLaravel\Exceptions\PennylaneApiException;
+use CLDT\PennylaneLaravel\Exceptions\PennylaneNotFoundException;
+use CLDT\PennylaneLaravel\Exceptions\PennylaneBadRequestException;
+use CLDT\PennylaneLaravel\Exceptions\PennylaneAuthenticationException;
+
+try {
+    $invoice = $pennylane->customerInvoices()->get(999);
+} catch (PennylaneNotFoundException $e) {
+    // 404 — resource not found
+    $e->getStatusCode();    // 404
+    $e->getErrorMessage();  // Error message from the API
+    $e->getResponseBody();  // Full decoded JSON response
+} catch (PennylaneBadRequestException $e) {
+    // 400 — includes structured error details
+    $e->getField();          // ?string — the field that caused the error
+    $e->getBadRequestCode(); // ?BadRequestCode enum — e.g. BadRequestCode::NotExistRequiredKey
+    $e->getPayload();        // ?string
+} catch (PennylaneAuthenticationException $e) {
+    // 401 — invalid or missing token
+} catch (PennylaneApiException $e) {
+    // Catch-all for any other API error (403, 422, 429, 5xx...)
+    $e->getStatusCode();
+    $e->getErrorMessage();
+}
+```
+
+Exception hierarchy:
+
+| Exception | HTTP Status |
+|---|---|
+| `PennylaneBadRequestException` | 400 |
+| `PennylaneAuthenticationException` | 401 |
+| `PennylaneAuthorizationException` | 403 |
+| `PennylaneNotFoundException` | 404 |
+| `PennylaneValidationException` | 422 |
+| `PennylaneRateLimitException` | 429 |
+| `PennylaneServerException` | 5xx |
+| `PennylaneApiException` | Any other non-2xx |
+
+All exceptions provide: `getStatusCode()`, `getErrorMessage()`, `getResponseBody()`, `getResponse()`.
 
 ---
 
@@ -483,9 +529,13 @@ Each attachment is an array with the following keys:
 ['name' => 'file', 'contents' => $fileContents, 'filename' => 'invoice.pdf']
 ```
 
+### Error handling
+
+API errors now throw typed exceptions (`PennylaneApiException` and subclasses) instead of silently returning partial data. If your code relied on checking response arrays for errors, wrap your calls in try/catch blocks instead. See the [Error Handling](#error-handling) section.
+
 ### Retry
 
-Automatic retry is now configured by default (3 attempts, 500ms delay). See the [Retry](#retry) section to customize.
+Automatic retry is now configured by default (3 attempts, 500ms delay) and only retries recoverable errors (5xx, 429, connection failures). Client errors (4xx) are thrown immediately. See the [Retry](#retry) section to customize.
 
 ### Dependencies
 
@@ -536,7 +586,7 @@ VatRate::FR200->value;                // 'FR_200'
 PaymentConditions::Days30->value;     // '30_days'
 ```
 
-Available enums: `AccountType`, `BillingSubscriptionMode`, `BillingSubscriptionOccurrenceRuleType`, `BillingSubscriptionPaymentMethod`, `BillingSubscriptionStatus`, `CategoryDirection`, `CommercialDocumentType`, `Currency`, `CustomerBillingLanguage`, `DiscountType`, `ExportStatus`, `InvoiceAccountingStatus`, `InvoicePaymentStatus`, `InvoiceStatus`, `MandateStatus`, `PaymentConditions`, `PaymentStatus`, `ProductUnit`, `PurchaseRequestStatus`, `QuoteStatus`, `SepaSequenceType`, `SupplierDueDateRule`, `SupplierPaymentMethod`, `VatRate`.
+Available enums: `AccountType`, `BadRequestCode`, `BillingSubscriptionMode`, `BillingSubscriptionOccurrenceRuleType`, `BillingSubscriptionPaymentMethod`, `BillingSubscriptionStatus`, `CategoryDirection`, `CommercialDocumentType`, `Currency`, `CustomerBillingLanguage`, `DiscountType`, `ExportStatus`, `InvoiceAccountingStatus`, `InvoicePaymentStatus`, `InvoiceStatus`, `MandateStatus`, `PaymentConditions`, `PaymentStatus`, `ProductUnit`, `PurchaseRequestStatus`, `QuoteStatus`, `SepaSequenceType`, `SupplierDueDateRule`, `SupplierPaymentMethod`, `VatRate`.
 
 ---
 

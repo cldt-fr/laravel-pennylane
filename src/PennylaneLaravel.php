@@ -37,7 +37,9 @@ use CLDT\PennylaneLaravel\Api\TrialBalance;
 use CLDT\PennylaneLaravel\Api\Users;
 use CLDT\PennylaneLaravel\Api\Webhooks;
 use CLDT\PennylaneLaravel\Dto\Responses\UserResponse;
+use CLDT\PennylaneLaravel\Exceptions\PennylaneApiException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 
 class PennylaneLaravel
 {
@@ -220,7 +222,17 @@ class PennylaneLaravel
 
     public function me(): UserResponse
     {
-        return UserResponse::fromArray($this->client->get('me')->json());
+        try {
+            $response = $this->client->get('me');
+        } catch (RequestException $e) {
+            throw PennylaneApiException::fromResponse($e->response, $e);
+        }
+
+        if (! $response->successful()) {
+            throw PennylaneApiException::fromResponse($response);
+        }
+
+        return UserResponse::fromArray($response->json() ?? []);
     }
 
     /**

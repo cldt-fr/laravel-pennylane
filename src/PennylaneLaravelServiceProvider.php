@@ -2,6 +2,7 @@
 
 namespace CLDT\PennylaneLaravel;
 
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\ServiceProvider;
 
@@ -35,6 +36,14 @@ class PennylaneLaravelServiceProvider extends ServiceProvider
                 ->retry(
                     config('pennylane-laravel.retry.times', 3),
                     config('pennylane-laravel.retry.sleep', 500),
+                    when: function (\Exception $exception) {
+                        if ($exception instanceof RequestException) {
+                            return $exception->response->status() >= 500
+                                || $exception->response->status() === 429;
+                        }
+
+                        return $exception instanceof \Illuminate\Http\Client\ConnectionException;
+                    },
                     throw: config('pennylane-laravel.retry.throw', true),
                 );
 
