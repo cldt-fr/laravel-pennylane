@@ -431,8 +431,13 @@ $webhook = $pennylane->webhooks()->get();
 // Customer invoice templates
 $templates = $pennylane->customerInvoiceTemplates()->list();
 
-// E-Invoices
-$pennylane->eInvoices()->import($data);
+// E-Invoices - Import with file upload (multipart/form-data)
+$pennylane->eInvoices()->import(
+    fields: ['create_customer' => true],
+    attachments: [
+        ['name' => 'file', 'contents' => file_get_contents('/path/to/invoice.pdf'), 'filename' => 'invoice.pdf'],
+    ],
+);
 
 // Fiscal years
 $years = $pennylane->fiscalYears()->list();
@@ -470,6 +475,7 @@ The `import()` and `upload()` methods now use `multipart/form-data` and accept t
 | `supplierInvoices()->import()` | `import(array $data)` | `import(array $fields = [], array $attachments = [])` |
 | `fileAttachments()->upload()` | `upload(array $data)` | `upload(array $fields = [], array $attachments = [])` |
 | `ledgerAttachments()->upload()` | `upload(array $data)` | `upload(array $fields = [], array $attachments = [])` |
+| `eInvoices()->import()` | `import(array $data)` | `import(array $fields = [], array $attachments = [])` |
 
 Each attachment is an array with the following keys:
 
